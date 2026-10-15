@@ -5,6 +5,9 @@
   "bin": {
     "my-pi": "index.ts"
   },
+  "scripts": {
+    "dev": "bun run src/index.ts"
+  },
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
@@ -15,6 +18,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@inquirer/prompts": "^8.7.3",
     "commander": "^15.0.0",
     "dotenv": "^18.0.8",
     "zod": "^4.6.7"
