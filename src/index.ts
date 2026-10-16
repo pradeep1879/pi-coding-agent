@@ -149,11 +149,8 @@ program
     try {
       console.log("\nThinking...\n");
 
-      for await (const chunk of streamGemini(options.prompt)){
-        process.stdout.write(chunk)
-      }
+      await streamGemini(options.prompt);
 
-      process.stdout.write("\n");
     } catch (error) {
       console.error(
         "Agent error:",
