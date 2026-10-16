@@ -1,24 +1,14 @@
 #!/usr/bin/env bun
 
 import { Command } from "commander";
-import {
-  isProviderId,
-  providers,
-} from "./providers/registry.js";
-import {
-  loadConfig,
-  getApiKey,
-  saveApiKey
-} from "./config/store.js";
+import { isProviderId, providers } from "./providers/registry.js";
+import { loadConfig, getApiKey, saveApiKey, removeApiKey, saveConfig } from "./config/store.js";
 import { password } from "@inquirer/prompts";
-
+import { streamGemini } from "./providers/gemini.js";
 
 const program = new Command();
 
-program
-  .name("my-pi")
-  .description("A TypeScript Coding Agent")
-  .version("0.1.0");
+program.name("my-pi").description("A TypeScript Coding Agent").version("0.1.0");
 
 // Providers command
 const providerCommand = program
@@ -38,11 +28,10 @@ providerCommand
         const apiKey = await getApiKey(provider.id);
         const status = apiKey ? "Configured" : "Not configured";
 
-        const isDefault = config.defaultProvider === provider.id ? " (default)" : "";
+        const isDefault =
+          config.defaultProvider === provider.id ? " (default)" : "";
 
-        console.log(
-          `${provider.name}: ${status}${isDefault}`,
-        );
+        console.log(`${provider.name}: ${status}${isDefault}`);
       }
     } catch (error) {
       console.error(
@@ -60,14 +49,10 @@ providerCommand
   .action(async (options: { provider: string }) => {
     try {
       if (!isProviderId(options.provider)) {
-        throw new Error(
-          `Unsupported provider: ${options.provider}`,
-        );
+        throw new Error(`Unsupported provider: ${options.provider}`);
       }
 
-      const provider = providers.find(
-        (item) => item.id === options.provider,
-      );
+      const provider = providers.find((item) => item.id === options.provider);
 
       if (!provider) {
         throw new Error("Provider not found");
@@ -82,12 +67,71 @@ providerCommand
 
       console.log(`${provider.name} API key saved successfully.`);
     } catch (error) {
+      console.error(error instanceof Error ? error.message : error);
+      process.exitCode = 1;
+    }
+  });
+
+providerCommand
+  .command("logout")
+  .description("Remove API key")
+  .requiredOption("--provider <provider>", "Provider ID")
+  .action(async (options: { provider: string }) => {
+    try {
+      if (!isProviderId(options.provider)) {
+        throw new Error(`Unsupported provider: ${options.provider}`);
+      }
+
+      const provider = providers.find(
+        (item) =>  item.id === options.provider
+      );
+
+      if(!provider){
+        throw new Error("Provider not found");
+      }
+
+      await removeApiKey(options.provider);
+
+      console.log(
+        `${options.provider} API key removed successfully.`,
+      );
+
+    } catch (error) {
       console.error(
         error instanceof Error ? error.message : error,
       );
       process.exitCode = 1;
     }
   });
+
+
+providerCommand
+  .command("set")
+  .description("Set the default AI provider")
+  .argument("<provider>", "Provider ID")
+  .action(async (providerId: string) => {
+    try {
+      if (!isProviderId(providerId)) {
+        throw new Error(`Unsupported provider: ${providerId}`);
+      }
+
+      const config = await loadConfig();
+
+      await saveConfig({
+        ...config,
+        defaultProvider: providerId,
+      });
+
+      console.log(`Default provider set to ${providerId}.`);
+    } catch (error) {
+      console.error(
+        error instanceof Error ? error.message : error,
+      );
+      process.exitCode = 1;
+    }
+  });
+
+
 // Models command
 program
   .command("models")
@@ -100,15 +144,24 @@ program
 program
   .command("agent")
   .description("Run the agent")
-  .option("-p, --prompt <prompt>", "Prompt for the agent")
-  .action((options: { prompt?: string }) => {
-    if (!options.prompt) {
-      console.log('Usage: my-pi agent -p "Your task"');
-      return;
-    }
+  .requiredOption("-p, --prompt <prompt>", "Prompt for the agent")
+  .action(async (options: { prompt: string }) => {
+    try {
+      console.log("\nThinking...\n");
 
-    console.log(`Agent task: ${options.prompt}`);
-    console.log("Agent execution is not implemented yet.");
+      for await (const chunk of streamGemini(options.prompt)){
+        process.stdout.write(chunk)
+      }
+
+      process.stdout.write("\n");
+    } catch (error) {
+      console.error(
+        "Agent error:",
+        error instanceof Error ? error.message : error,
+      );
+
+      process.exitCode = 1;
+    }
   });
 
 await program.parseAsync(process.argv);
