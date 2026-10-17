@@ -3,8 +3,9 @@
 import { Command } from "commander";
 import { isProviderId, providers } from "./providers/registry.js";
 import { loadConfig, getApiKey, saveApiKey, removeApiKey, saveConfig } from "./config/store.js";
-import { password } from "@inquirer/prompts";
+import { password, input } from "@inquirer/prompts";
 import { streamGemini } from "./providers/gemini.js";
+import { conversationHistory } from "./agent/session.js";
 
 const program = new Command();
 
@@ -160,5 +161,39 @@ program
       process.exitCode = 1;
     }
   });
+
+
+
+program
+  .command("chat")
+  .description("Start an interactive coding-agent session")
+  .action(async () => {
+    console.log("my-pi chat started. Type 'exit' to quit.\n");
+
+    while (true) {
+      const prompt = await input({
+        message: "pi>",
+      });
+
+      if (prompt.trim().toLowerCase() === "exit") {
+        console.log("Goodbye!");
+        break;
+      }
+
+      if(prompt.trim() === "/clear"){
+        conversationHistory.length = 0;
+        console.log("Conversation cleared.\n");
+        continue;
+      }
+
+      if (!prompt.trim()) {
+        continue;
+      }
+
+      await streamGemini(prompt);
+      console.log();
+    }
+  });
+
 
 await program.parseAsync(process.argv);

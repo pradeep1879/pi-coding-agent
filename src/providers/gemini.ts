@@ -25,6 +25,11 @@ export async function streamGemini(
   // Keep the complete conversation across model turns.
   const history = conversationHistory
 
+  history.push({
+    role: "user",
+    parts: [{ text: prompt }],
+  });
+
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     const response = await ai.models.generateContent({
       model: MODEL,
