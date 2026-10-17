@@ -4,6 +4,7 @@ import { getApiKey } from "../config/store.js";
 import { readFileDeclaration, listFileDeclaration } from "../tools/definations.js";
 import { readFileTool } from "../tools/read-file.js";
 import { listFilesToo } from "../tools/list-files.js";
+import { systemInstruction } from "../prompt/prompt.js";
 
 
 const MODEL = "gemini-2.5-flash";
@@ -33,6 +34,7 @@ export async function streamGemini(
       model: MODEL,
       contents: history,
       config: {
+        systemInstruction: systemInstruction,
         tools: [
           {
             functionDeclarations: [
