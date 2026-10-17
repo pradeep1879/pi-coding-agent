@@ -5,6 +5,7 @@ import { readFileDeclaration, listFileDeclaration } from "../tools/definations.j
 import { readFileTool } from "../tools/read-file.js";
 import { listFilesToo } from "../tools/list-files.js";
 import { systemInstruction } from "../prompt/prompt.js";
+import { conversationHistory } from "../agent/session.js";
 
 
 const MODEL = "gemini-2.5-flash";
@@ -22,12 +23,7 @@ export async function streamGemini(
   const ai = new GoogleGenAI({ apiKey });
 
   // Keep the complete conversation across model turns.
-  const history: Content[] = [
-    {
-      role: "user",
-      parts: [{ text: prompt }],
-    },
-  ];
+  const history = conversationHistory
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     const response = await ai.models.generateContent({
