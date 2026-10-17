@@ -16,3 +16,22 @@ export const readFileDeclaration: FunctionDeclaration = {
     required: ["filePath"],
   },
 };
+
+
+
+export const listFileDeclaration: FunctionDeclaration = {
+  name: "list_files",
+  description:
+    "List files and directories inside the current project. Use this to discover the project structure before reading files.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      directory: {
+        type: Type.STRING,
+        description:
+          'The relative directory to list, such as "." or "src". Use "." to list the project root.',
+      },
+    },
+  },
+};
+

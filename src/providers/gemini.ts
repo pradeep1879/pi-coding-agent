@@ -1,8 +1,10 @@
 
 import { GoogleGenAI, type Content } from "@google/genai";
 import { getApiKey } from "../config/store.js";
-import { readFileDeclaration } from "../tools/definations.js";
+import { readFileDeclaration, listFileDeclaration } from "../tools/definations.js";
 import { readFileTool } from "../tools/read-file.js";
+import { listFilesToo } from "../tools/list-files.js";
+
 
 const MODEL = "gemini-2.5-flash";
 const MAX_ITERATIONS = 10;
@@ -33,7 +35,10 @@ export async function streamGemini(
       config: {
         tools: [
           {
-            functionDeclarations: [readFileDeclaration],
+            functionDeclarations: [
+              readFileDeclaration,
+              listFileDeclaration 
+            ],
           },
         ],
       },
@@ -68,18 +73,64 @@ export async function streamGemini(
     const functionResponses = [];
 
     for (const call of functionCalls) {
-      if (call.name !== "read_file") {
+      
+    if (call.name === "list_files") {
+      const args = call.args;
+      const directory = args?.directory;
+
+      if (
+        directory !== undefined &&
+        (typeof directory !== "string" || !directory.trim())
+      ) {
         functionResponses.push({
           functionResponse: {
-            name: call.name ?? "unknown",
-            response: {
-              error: `Unsupported tool: ${call.name ?? "unknown"}`,
-            },
+            name: "list_files",
+            response: { error: "Invalid directory argument" },
           },
         });
 
         continue;
       }
+
+      console.log(`\n[Tool] Listing ${directory ?? "."}`);
+
+  try {
+    const result = await listFilesToo(directory ?? ".");
+
+    functionResponses.push({
+      functionResponse: {
+        name: "list_files",
+        response: { result },
+      },
+    });
+  } catch (error) {
+    functionResponses.push({
+      functionResponse: {
+        name: "list_files",
+        response: {
+          error: error instanceof Error
+            ? error.message
+            : String(error),
+        },
+      },
+    });
+  }
+
+  continue;
+}
+
+if (call.name !== "read_file") {
+  functionResponses.push({
+    functionResponse: {
+      name: call.name ?? "unknown",
+      response: {
+        error: `Unsupported tool: ${call.name ?? "unknown"}`,
+      },
+    },
+  });
+
+  continue;
+}
 
       const args = call.args;
       let filePath = args?.filePath;
