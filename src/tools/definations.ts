@@ -35,3 +35,23 @@ export const listFileDeclaration: FunctionDeclaration = {
   },
 };
 
+
+export const writeFileDeclaration: FunctionDeclaration = {
+  name: "write_file",
+  description:
+    "Create a new file inside the project with the provided content. Never overwrites an existing file.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      filePath: {
+        type: Type.STRING,
+        description: "Relative path of the file to create",
+      },
+      content: {
+        type: Type.STRING,
+        description: "Complete content to write into the file",
+      },
+    },
+    required: ["filePath", "content"]
+  }
+}

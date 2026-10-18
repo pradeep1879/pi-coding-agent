@@ -2,12 +2,12 @@ import path from "node:path";
 import fs from "node:fs/promises";
 
 export async function writeFileTool(
-  filePath: string,
+  filePath: string, //"src/utils.ts"
   content: string,
 ): Promise<string> {
   try {
-    const projectRoot = process.cwd();
-    const targetPath = path.resolve(projectRoot, filePath);
+    const projectRoot = process.cwd(); //"/Users/pradeep/pi"
+    const targetPath = path.resolve(projectRoot, filePath); //Users/pradeep/pi/src/utils.ts
 
     const relativePath = path.relative(projectRoot, targetPath);
 

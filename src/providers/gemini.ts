@@ -1,19 +1,20 @@
-
 import { GoogleGenAI, type Content } from "@google/genai";
 import { getApiKey } from "../config/store.js";
-import { readFileDeclaration, listFileDeclaration } from "../tools/definations.js";
+import {
+  readFileDeclaration,
+  listFileDeclaration,
+  writeFileDeclaration,
+} from "../tools/definations.js";
 import { readFileTool } from "../tools/read-file.js";
 import { listFilesToo } from "../tools/list-files.js";
 import { systemInstruction } from "../prompt/prompt.js";
 import { conversationHistory } from "../agent/session.js";
-
+import { writeFileTool } from "../tools/write-file.js";
 
 const MODEL = "gemini-2.5-flash";
 const MAX_ITERATIONS = 10;
 
-export async function streamGemini(
-  prompt: string,
-): Promise<void> {
+export async function streamGemini(prompt: string): Promise<void> {
   const apiKey = await getApiKey("gemini");
 
   if (!apiKey) {
@@ -23,7 +24,7 @@ export async function streamGemini(
   const ai = new GoogleGenAI({ apiKey });
 
   // Keep the complete conversation across model turns.
-  const history = conversationHistory
+  const history = conversationHistory;
 
   history.push({
     role: "user",
@@ -40,7 +41,8 @@ export async function streamGemini(
           {
             functionDeclarations: [
               readFileDeclaration,
-              listFileDeclaration 
+              listFileDeclaration,
+              writeFileDeclaration,
             ],
           },
         ],
@@ -76,114 +78,142 @@ export async function streamGemini(
     const functionResponses = [];
 
     for (const call of functionCalls) {
-      
-    if (call.name === "list_files") {
       const args = call.args;
-      const directory = args?.directory;
 
-      if (
-        directory !== undefined &&
-        (typeof directory !== "string" || !directory.trim())
-      ) {
-        functionResponses.push({
-          functionResponse: {
-            name: "list_files",
-            response: { error: "Invalid directory argument" },
-          },
-        });
+      // Handle list_files
+      if (call.name === "list_files") {
+        const directory = args?.directory;
+
+        if (directory !== undefined && typeof directory !== "string") {
+          functionResponses.push({
+            functionResponse: {
+              name: "list_files",
+              response: { error: "Invalid directory argument" },
+            },
+          });
+          continue;
+        }
+
+        console.log(`\n[Tool] Listing ${directory ?? "."}`);
+
+        try {
+          const result = await listFilesToo(directory ?? ".");
+
+          functionResponses.push({
+            functionResponse: {
+              name: "list_files",
+              response: { result },
+            },
+          });
+        } catch (error) {
+          functionResponses.push({
+            functionResponse: {
+              name: "list_files",
+              response: {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            },
+          });
+        }
 
         continue;
       }
 
-      console.log(`\n[Tool] Listing ${directory ?? "."}`);
+      // Handle read_file
+      if (call.name === "read_file") {
+        const filePath = args?.filePath;
 
-  try {
-    const result = await listFilesToo(directory ?? ".");
+        if (typeof filePath !== "string" || !filePath.trim()) {
+          functionResponses.push({
+            functionResponse: {
+              name: "read_file",
+              response: { error: "Invalid filePath argument" },
+            },
+          });
+          continue;
+        }
 
-    functionResponses.push({
-      functionResponse: {
-        name: "list_files",
-        response: { result },
-      },
-    });
-  } catch (error) {
-    functionResponses.push({
-      functionResponse: {
-        name: "list_files",
-        response: {
-          error: error instanceof Error
-            ? error.message
-            : String(error),
+        console.log(`\n[Tool] Reading ${filePath}`);
+
+        try {
+          const result = await readFileTool(filePath);
+
+          functionResponses.push({
+            functionResponse: {
+              name: "read_file",
+              response: { result },
+            },
+          });
+        } catch (error) {
+          functionResponses.push({
+            functionResponse: {
+              name: "read_file",
+              response: {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            },
+          });
+        }
+
+        continue;
+      }
+
+      // Handle write_file
+      if (call.name === "write_file") {
+        const filePath = args?.filePath;
+        const content = args?.content;
+
+        if (
+          typeof filePath !== "string" ||
+          !filePath.trim() ||
+          typeof content !== "string"
+        ) {
+          functionResponses.push({
+            functionResponse: {
+              name: "write_file",
+              response: {
+                error:
+                  "filePath must be a non-empty string and content must be a string",
+              },
+            },
+          });
+          continue;
+        }
+
+        console.log(`\n[Tool] Writing ${filePath}`);
+
+        try {
+          const result = await writeFileTool(filePath, content);
+
+          functionResponses.push({
+            functionResponse: {
+              name: "write_file",
+              response: { result },
+            },
+          });
+        } catch (error) {
+          functionResponses.push({
+            functionResponse: {
+              name: "write_file",
+              response: {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            },
+          });
+        }
+
+        continue;
+      }
+
+      // Handle unknown tools
+      functionResponses.push({
+        functionResponse: {
+          name: call.name ?? "unknown",
+          response: {
+            error: `Unsupported tool: ${call.name ?? "unknown"}`,
+          },
         },
-      },
-    });
-  }
-
-  continue;
-}
-
-if (call.name !== "read_file") {
-  functionResponses.push({
-    functionResponse: {
-      name: call.name ?? "unknown",
-      response: {
-        error: `Unsupported tool: ${call.name ?? "unknown"}`,
-      },
-    },
-  });
-
-  continue;
-}
-
-      const args = call.args;
-      let filePath = args?.filePath;
-
-      // Tolerate the nested argument shape seen during debugging.
-      if (
-        typeof filePath === "object" &&
-        filePath !== null &&
-        "filePath" in filePath
-      ) {
-        filePath = filePath.filePath;
-      }
-
-      if (typeof filePath !== "string" || !filePath.trim()) {
-        functionResponses.push({
-          functionResponse: {
-            name: "read_file",
-            response: {
-              error: "Invalid filePath argument",
-            },
-          },
-        });
-
-        continue;
-      }
-
-      console.log(`\n[Tool] Reading ${filePath}`);
-
-      try {
-        const result = await readFileTool(filePath);
-
-        functionResponses.push({
-          functionResponse: {
-            name: "read_file",
-            response: { result },
-          },
-        });
-      } catch (error) {
-        functionResponses.push({
-          functionResponse: {
-            name: "read_file",
-            response: {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : String(error),
-            },
-          },
-        });
-      }
+      });
     }
 
     // Return the tool results to Gemini on the next iteration.
@@ -193,7 +223,5 @@ if (call.name !== "read_file") {
     });
   }
 
-  throw new Error(
-    `Agent stopped after ${MAX_ITERATIONS} model turns`,
-  );
+  throw new Error(`Agent stopped after ${MAX_ITERATIONS} model turns`);
 }
