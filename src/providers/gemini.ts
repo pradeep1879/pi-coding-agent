@@ -4,12 +4,14 @@ import {
   readFileDeclaration,
   listFileDeclaration,
   writeFileDeclaration,
+  editFileDeclaration,
 } from "../tools/definations.js";
 import { readFileTool } from "../tools/read-file.js";
 import { listFilesToo } from "../tools/list-files.js";
 import { systemInstruction } from "../prompt/prompt.js";
 import { conversationHistory } from "../agent/session.js";
 import { writeFileTool } from "../tools/write-file.js";
+import { editFileTool } from "../tools/edit-file.js";
 
 const MODEL = "gemini-2.5-flash";
 const MAX_ITERATIONS = 10;
@@ -43,6 +45,7 @@ export async function streamGemini(prompt: string): Promise<void> {
               readFileDeclaration,
               listFileDeclaration,
               writeFileDeclaration,
+              editFileDeclaration,
             ],
           },
         ],
@@ -204,6 +207,58 @@ export async function streamGemini(prompt: string): Promise<void> {
 
         continue;
       }
+
+      // Handle edit_file
+      if (call.name === "edit_file") {
+        const filePath = call.args?.filePath;
+        const oldText = call.args?.oldText;
+        const newText = call.args?.newText;
+
+        if (
+          typeof filePath !== "string" ||
+          !filePath.trim() ||
+          typeof oldText !== "string" ||
+          !oldText ||
+          typeof newText !== "string"
+        ) {
+          functionResponses.push({
+            functionResponse: {
+              name: "edit_file",
+              response: {
+                error:
+                  "filePath must be a non-empty string, oldText must be non-empty, and newText must be a string.",
+              },
+            },
+          });
+
+          continue;
+        }
+
+        console.log(`\n[Tool] Editing ${filePath}`);
+
+        try {
+          const result = await editFileTool(filePath, oldText, newText);
+
+          functionResponses.push({
+            functionResponse: {
+              name: "edit_file",
+              response: { result },
+            },
+          });
+        } catch (error) {
+          functionResponses.push({
+            functionResponse: {
+              name: "edit_file",
+              response: {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            },
+          });
+        }
+
+        continue;
+      }
+      
 
       // Handle unknown tools
       functionResponses.push({

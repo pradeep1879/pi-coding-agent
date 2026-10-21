@@ -55,3 +55,28 @@ export const writeFileDeclaration: FunctionDeclaration = {
     required: ["filePath", "content"]
   }
 }
+
+
+export const editFileDeclaration: FunctionDeclaration = {
+  name: "edit_file",
+  description:
+    "Replace one unique occurrence of specific text in an existing project file. Does not create files. Fails if the old text is missing or appears multiple times.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      filePath: {
+        type: Type.STRING,
+        description: "Relative path of the existing file to edit",
+      },
+      oldText: {
+        type: Type.STRING,
+        description: "Exact existing text to replace",
+      },
+      newText: {
+        type: Type.STRING,
+        description: "Replacement text",
+      },
+    },
+    required: ["filePath", "oldText", "newText"],
+  },
+};
