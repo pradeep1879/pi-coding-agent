@@ -5,6 +5,7 @@ import {
   listFileDeclaration,
   writeFileDeclaration,
   editFileDeclaration,
+  runCommandDeclaration,
 } from "../tools/definations.js";
 import { readFileTool } from "../tools/read-file.js";
 import { listFilesToo } from "../tools/list-files.js";
@@ -12,8 +13,9 @@ import { systemInstruction } from "../prompt/prompt.js";
 import { conversationHistory } from "../agent/session.js";
 import { writeFileTool } from "../tools/write-file.js";
 import { editFileTool } from "../tools/edit-file.js";
+import { runCommand } from "../tools/run-command.js";
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.8-flash";
 const MAX_ITERATIONS = 10;
 
 export async function streamGemini(prompt: string): Promise<void> {
@@ -46,6 +48,7 @@ export async function streamGemini(prompt: string): Promise<void> {
               listFileDeclaration,
               writeFileDeclaration,
               editFileDeclaration,
+              runCommandDeclaration
             ],
           },
         ],
@@ -258,6 +261,50 @@ export async function streamGemini(prompt: string): Promise<void> {
 
         continue;
       }
+
+
+      // Handle run_command
+      if (call.name === "run_command") {
+        const command = args?.command;
+
+        if (typeof command !== "string" || !command.trim()) {
+          functionResponses.push({
+            functionResponse: {
+              name: "run_command",
+              response: { error: "Invalid command argument" },
+            },
+          });
+          continue;
+        }
+
+        console.log(`\n[Tool] Running command: ${command}`);
+
+        try {
+          const result = await runCommand(command);
+
+          functionResponses.push({
+            functionResponse: {
+              name: "run_command",
+              response: {
+                output: result.output,
+                exitCode: result.code,
+              },
+            },
+          });
+        } catch (error) {
+          functionResponses.push({
+            functionResponse: {
+              name: "run_command",
+              response: {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            },
+          });
+        }
+
+        continue;
+      }
+
       
 
       // Handle unknown tools
