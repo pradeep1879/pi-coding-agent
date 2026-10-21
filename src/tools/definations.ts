@@ -80,3 +80,21 @@ export const editFileDeclaration: FunctionDeclaration = {
     required: ["filePath", "oldText", "newText"],
   },
 };
+
+
+
+export const runCommandDeclaration: FunctionDeclaration = {
+  name: "run_command",
+  description:
+    "Execute a terminal command in the project directory and return its output and exit code.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      command: {
+        type: Type.OBJECT,
+        description: "The terminal command to execute.",
+      },
+    },
+    required: ["command"],
+  },
+};
