@@ -3,7 +3,7 @@
 import { Command } from "commander";
 import { isProviderId, providers } from "./providers/registry.js";
 import { loadConfig, getApiKey, saveApiKey, removeApiKey, saveConfig } from "./config/store.js";
-import { password, input } from "@inquirer/prompts";
+import { password, input, confirm } from "@inquirer/prompts";
 import { streamGemini } from "./providers/gemini.js";
 import { conversationHistory } from "./agent/session.js";
 
@@ -162,6 +162,22 @@ program
     }
   });
 
+async function requestCommandApproval(
+  command: string,
+): Promise<boolean> {
+  console.log("\n[Approval Required]");
+  console.log(`Action: ${command}`);
+
+  try {
+    return await confirm({
+      message: "Allow execution of this command?",
+      default: false,
+    });
+  } catch {
+    // If approval is interrupted, reject the command.
+    return false;
+  }
+}
 
 
 program
@@ -191,7 +207,7 @@ program
       }
 
       try {
-        await streamGemini(prompt);
+        await streamGemini(prompt, requestCommandApproval);
       } catch (error) {
         console.error(
           "\nChat error:",
