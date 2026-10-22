@@ -2,25 +2,47 @@
 import { spawn } from "node:child_process";
 import { parseCommand } from "./validate-command";
 
-const MAX_OUTPUT_SIZE = 100 * 1024; // 100 KB
+const MAX_OUTPUT_SIZE = 100 * 1024;
 const TIMEOUT_MS = 10 * 1000;
 
-export function runCommand(command: string) {
-  return new Promise<{ output: string; code: number | null }>((resolve) => {
-    if (!parseCommand(command)) {
-      resolve({
-        output: `Command rejected by safety validation: ${command}`,
-        code: null,
-      });
-      return;
-    }
+export type ApprovalCallback = (command: string) => Promise<boolean>;
 
-    // Basic parsing for simple commands; quoted arguments need a proper parser.
-    const parts = command.trim().split(/\s+/);
-    const executable = parts[0];
-    const args = parts.slice(1);
+export async function runCommand(
+  command: string,
+  requestApproval: ApprovalCallback,
+): Promise<{ output: string; code: number | null }> {
+  const parts = parseCommand(command);
 
-    const child = spawn(executable!, args, {
+  if(!parts){
+    return {
+      output: `Command rejected by safety validation: ${command}`,
+      code: null,
+    };
+  }
+
+  let approved = false;
+
+  try {
+    approved = await requestApproval(command);
+  } catch {
+    return {
+      output: "Command rejected: approval could not be obtained.",
+      code: null,
+    };
+  }
+
+  if (approved !== true) {
+    return {
+      output: "Command rejected: user denied approval.",
+      code: null,
+    };
+  }
+
+  const executable = parts[0]!;
+  const args = parts.slice(1);
+
+  return new Promise((resolve) => {
+    const child = spawn(executable, args, {
       shell: false,
       cwd: process.cwd(),
       stdio: ["ignore", "pipe", "pipe"],
@@ -33,7 +55,6 @@ export function runCommand(command: string) {
 
     const timer = setTimeout(() => {
       if (finished) return;
-
       timedOut = true;
       child.kill("SIGTERM");
     }, TIMEOUT_MS);
@@ -52,7 +73,6 @@ export function runCommand(command: string) {
         return;
       }
 
-      // Decode only complete UTF-8 characters that fit.
       let chunk = data.subarray(0, remainingBytes);
 
       while (chunk.length > 0) {
