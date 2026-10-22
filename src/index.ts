@@ -190,8 +190,14 @@ program
         continue;
       }
 
-      await streamGemini(prompt);
-      console.log();
+      try {
+        await streamGemini(prompt);
+      } catch (error) {
+        console.error(
+          "\nChat error:",
+          error instanceof Error ? error.message : String(error)
+        );
+      }
     }
   });
 
