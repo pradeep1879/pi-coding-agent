@@ -91,7 +91,7 @@ export const runCommandDeclaration: FunctionDeclaration = {
     type: Type.OBJECT,
     properties: {
       command: {
-        type: Type.OBJECT,
+        type: Type.STRING,
         description: "The terminal command to execute.",
       },
     },

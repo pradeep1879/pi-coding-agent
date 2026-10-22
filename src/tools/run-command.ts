@@ -1,13 +1,27 @@
 
 import { spawn } from "node:child_process";
+import { parseCommand } from "./validate-command";
 
 const MAX_OUTPUT_SIZE = 100 * 1024; // 100 KB
 const TIMEOUT_MS = 10 * 1000;
 
 export function runCommand(command: string) {
   return new Promise<{ output: string; code: number | null }>((resolve) => {
-    const child = spawn(command, {
-      shell: true,
+    if (!parseCommand(command)) {
+      resolve({
+        output: `Command rejected by safety validation: ${command}`,
+        code: null,
+      });
+      return;
+    }
+
+    // Basic parsing for simple commands; quoted arguments need a proper parser.
+    const parts = command.trim().split(/\s+/);
+    const executable = parts[0];
+    const args = parts.slice(1);
+
+    const child = spawn(executable!, args, {
+      shell: false,
       cwd: process.cwd(),
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -35,24 +49,24 @@ export function runCommand(command: string) {
 
       if (data.length <= remainingBytes) {
         output += data.toString("utf8");
-      } else {
-        // Keep only the bytes that fit.
-        let chunk = data.subarray(0, remainingBytes);
+        return;
+      }
 
-        // Avoid decoding an incomplete UTF-8 character.
-        while (chunk.length > 0) {
-          const decoded = chunk.toString("utf8");
+      // Decode only complete UTF-8 characters that fit.
+      let chunk = data.subarray(0, remainingBytes);
 
-          if (!decoded.includes("\uFFFD")) {
-            output += decoded;
-            break;
-          }
+      while (chunk.length > 0) {
+        const decoded = chunk.toString("utf8");
 
-          chunk = chunk.subarray(0, chunk.length - 1);
+        if (!decoded.includes("\uFFFD")) {
+          output += decoded;
+          break;
         }
 
-        outputTruncated = true;
+        chunk = chunk.subarray(0, chunk.length - 1);
       }
+
+      outputTruncated = true;
     };
 
     child.stdout.on("data", collectOutput);
@@ -65,7 +79,9 @@ export function runCommand(command: string) {
       clearTimeout(timer);
 
       resolve({
-        output: error.message,
+        output: timedOut
+          ? `${output}\n[Command timed out after 10 seconds.]`
+          : error.message,
         code: null,
       });
     });
