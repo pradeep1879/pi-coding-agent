@@ -15,7 +15,7 @@ import { writeFileTool } from "../tools/write-file.js";
 import { editFileTool } from "../tools/edit-file.js";
 import { runCommand } from "../tools/run-command.js";
 
-const MODEL = "gemini-3.8-flash";
+const MODEL = "gemini-2.5-flash";
 const MAX_ITERATIONS = 10;
 
 export async function streamGemini(prompt: string): Promise<void> {
@@ -35,7 +35,8 @@ export async function streamGemini(prompt: string): Promise<void> {
     parts: [{ text: prompt }],
   });
 
-  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+  try {
+    for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     const response = await ai.models.generateContent({
       model: MODEL,
       contents: history,
@@ -265,6 +266,7 @@ export async function streamGemini(prompt: string): Promise<void> {
 
       // Handle run_command
       if (call.name === "run_command") {
+        console.log(call.name, call.args, "handle run_command")
         const command = args?.command;
 
         if (typeof command !== "string" || !command.trim()) {
@@ -325,5 +327,26 @@ export async function streamGemini(prompt: string): Promise<void> {
     });
   }
 
-  throw new Error(`Agent stopped after ${MAX_ITERATIONS} model turns`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if(message.includes("503") || message.includes("UNAVAILABLE")) {
+      throw new Error(
+        "Gemini is temporarily unavailable due to high demand. Please try again later."
+      );
+    }
+
+    if(message.includes("429") || message.includes("RESOURCE_EXHAUSTED")) {
+      throw new Error(
+        "Gemini API quota or rate limit reached. Check your usage at https://ai.dev/rate-limit."
+      );
+    }
+
+    throw new Error(`Gemini request failed: ${message}`);
+  }
+
+  throw new Error(
+    `Agent stopped after reaching the maximum of ${MAX_ITERATIONS} model turns.`
+  );
+
 }
