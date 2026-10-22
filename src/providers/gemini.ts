@@ -14,11 +14,13 @@ import { conversationHistory } from "../agent/session.js";
 import { writeFileTool } from "../tools/write-file.js";
 import { editFileTool } from "../tools/edit-file.js";
 import { runCommand } from "../tools/run-command.js";
+type ApprovalCallback = (command: string) => Promise<boolean>;
 
 const MODEL = "gemini-2.5-flash";
 const MAX_ITERATIONS = 10;
 
-export async function streamGemini(prompt: string): Promise<void> {
+export async function streamGemini(prompt: string,
+   requestApproval: ApprovalCallback = async () => false): Promise<void> {
   const apiKey = await getApiKey("gemini");
 
   if (!apiKey) {
@@ -166,6 +168,8 @@ export async function streamGemini(prompt: string): Promise<void> {
       }
 
       // Handle write_file
+     
+      // Handle write_file
       if (call.name === "write_file") {
         const filePath = args?.filePath;
         const content = args?.content;
@@ -181,6 +185,29 @@ export async function streamGemini(prompt: string): Promise<void> {
               response: {
                 error:
                   "filePath must be a non-empty string and content must be a string",
+              },
+            },
+          });
+          continue;
+        }
+
+        // Ask for approval before modifying the file.
+        let approved = false;
+
+        try {
+          approved = await requestApproval(
+            `write_file: ${filePath}`,
+          );
+        } catch {
+          approved = false;
+        }
+
+        if (approved !== true) {
+          functionResponses.push({
+            functionResponse: {
+              name: "write_file",
+              response: {
+                error: `File write rejected by user: ${filePath}`,
               },
             },
           });
@@ -203,7 +230,8 @@ export async function streamGemini(prompt: string): Promise<void> {
             functionResponse: {
               name: "write_file",
               response: {
-                error: error instanceof Error ? error.message : String(error),
+                error:
+                  error instanceof Error ? error.message : String(error),
               },
             },
           });
@@ -211,6 +239,7 @@ export async function streamGemini(prompt: string): Promise<void> {
 
         continue;
       }
+
 
       // Handle edit_file
       if (call.name === "edit_file") {
@@ -279,10 +308,10 @@ export async function streamGemini(prompt: string): Promise<void> {
           continue;
         }
 
-        console.log(`\n[Tool] Running command: ${command}`);
+        console.log(`\n[Tool] Requesting approval for: ${command}`);
 
         try {
-          const result = await runCommand(command);
+          const result = await runCommand(command, requestApproval);
 
           functionResponses.push({
             functionResponse: {
