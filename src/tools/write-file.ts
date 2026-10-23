@@ -1,33 +1,31 @@
+
 import path from "node:path";
 import fs from "node:fs/promises";
+import { securePath } from "./secure-path";
 
 export async function writeFileTool(
-  filePath: string, //"src/utils.ts"
+  filePath: string,
   content: string,
 ): Promise<string> {
   try {
-    const projectRoot = process.cwd(); //"/Users/pradeep/pi"
-    const targetPath = path.resolve(projectRoot, filePath); //Users/pradeep/pi/src/utils.ts
-
-    const relativePath = path.relative(projectRoot, targetPath);
-
-  //     path.relative(
-  //   "/Users/pradeep/pi",
-  //   "/Users/pradeep/pi/src/utils.ts",
-  // ); // src/utils.ts
-
-    if (
-      relativePath === ".." ||
-      relativePath.startsWith(`..${path.sep}`) ||
-      path.isAbsolute(relativePath)
-    ) {
-      return "Error: Cannot write outside the project directory.";
+    if (!filePath.trim()) {
+      throw new Error("File path cannot be empty.");
     }
 
+    // Validate the target path before creating or writing anything.
+    const targetPath = securePath(filePath, {
+      allowNewFile: true,
+      allowNewDirectories: true,
+    });
+
+    const relativePath = path.relative(process.cwd(), targetPath);
+
+    // Preserve your existing behavior: create parent directories.
     await fs.mkdir(path.dirname(targetPath), {
       recursive: true,
     });
 
+    // "wx" creates a new file and refuses to overwrite an existing file.
     await fs.writeFile(targetPath, content, {
       encoding: "utf8",
       flag: "wx",
@@ -47,4 +45,4 @@ export async function writeFileTool(
       error instanceof Error ? error.message : String(error)
     }`;
   }
-} 
+}

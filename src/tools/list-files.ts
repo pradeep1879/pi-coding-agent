@@ -1,6 +1,7 @@
 
-import { readdir, stat, realpath } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { securePath } from "./secure-path";
 
 const MAX_LIMIT = 200;
 const MAX_DEPTH = 3;
@@ -17,29 +18,17 @@ const IGNORED_DIRS = new Set([
 export async function listFilesToo(
   directory = ".",
   depth = 0,
-  files: string[] = []
+  files: string[] = [],
 ): Promise<string> {
-  if (depth > MAX_DEPTH) {
+  if (depth > MAX_DEPTH || files.length >= MAX_LIMIT) {
     return files.join("\n");
   }
 
-  const projectRoot = await realpath(process.cwd());
-
-  const targetPath = await realpath(
-    path.resolve(projectRoot, directory)
-  );
-
-  if (
-    targetPath !== projectRoot &&
-    !targetPath.startsWith(projectRoot + path.sep)
-  ) {
-    throw new Error("Cannot list directories outside the project");
-  }
-
+  const targetPath = securePath(directory);
   const directoryInfo = await stat(targetPath);
 
   if (!directoryInfo.isDirectory()) {
-    throw new Error("The requested path is not a directory");
+    throw new Error("The requested path is not a directory.");
   }
 
   const entries = await readdir(targetPath, {
@@ -48,7 +37,11 @@ export async function listFilesToo(
 
   for (const entry of entries) {
     if (files.length >= MAX_LIMIT) {
-      return files.join("\n");
+      break;
+    }
+
+    if (entry.isSymbolicLink()) {
+      continue;
     }
 
     if (
@@ -58,21 +51,30 @@ export async function listFilesToo(
       continue;
     }
 
-    const relativePath = path.relative(
-      ".",
-      path.join(directory, entry.name)
-    );
+    const absolutePath = path.join(targetPath, entry.name);
+    const relativePath = path.relative(process.cwd(), absolutePath);
+
+    // Validate each entry before inspecting or traversing it.
+    let safeEntryPath: string;
+
+    try {
+      safeEntryPath = securePath(relativePath);
+    } catch {
+      continue;
+    }
 
     if (entry.isFile()) {
       files.push(relativePath);
     } else if (entry.isDirectory()) {
       files.push(`${relativePath}/`);
 
-      await listFilesToo(
-        path.join(directory, entry.name),
-        depth + 1,
-        files
-      );
+      if (depth < MAX_DEPTH) {
+        await listFilesToo(
+          relativePath,  //The problem is that safeEntryPath is an absolute path, but securePath() rejects absolute paths.
+          depth + 1,
+          files,
+        );
+      }
     }
   }
 

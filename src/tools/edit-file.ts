@@ -1,5 +1,7 @@
+
 import path from "node:path";
 import fs from "node:fs/promises";
+import { securePath } from "./secure-path";
 
 export async function editFileTool(
   filePath: string,
@@ -7,51 +9,29 @@ export async function editFileTool(
   newText: string,
 ): Promise<string> {
   try {
-    const projectRoot = process.cwd();
-    const targetPath = path.resolve(projectRoot, filePath);
-
-    const relativePath = path.relative(projectRoot, targetPath);
-
-    if (
-      relativePath === ".." ||
-      relativePath.startsWith(`..${path.sep}`) ||
-      path.isAbsolute(relativePath)
-    ) {
-      return "Error: Cannot edit files outside the project directory.";
-    }
-
-    const realProjectRoot = await fs.realpath(projectRoot);
-    const realTargetPath = await fs.realpath(targetPath);
-
-    const realRelativePath = path.relative(
-      realProjectRoot,
-      realTargetPath,
-    );
-
-    if (
-      realRelativePath === ".." ||
-      realRelativePath.startsWith(`..${path.sep}`) ||
-      path.isAbsolute(realRelativePath)
-    ) {
-      return "Error: Cannot edit files outside the project directory.";
-    }
-
-    const stats = await fs.stat(realTargetPath);
-
-    if (!stats.isFile()) {
-      return "Error: The target must be a regular file.";
+    if (!filePath.trim()) {
+      throw new Error("File path cannot be empty.");
     }
 
     if (!oldText) {
-      return "Error: oldText cannot be empty.";
+      throw new Error("oldText cannot be empty.");
     }
 
-    const originalContent = await fs.readFile(realTargetPath, "utf8");
+    const safePath = securePath(filePath);
+    const stats = await fs.stat(safePath);
+
+    if (!stats.isFile()) {
+      throw new Error("The target must be a regular file.");
+    }
+
+    const originalContent = await fs.readFile(safePath, "utf8");
 
     const firstMatch = originalContent.indexOf(oldText);
 
     if (firstMatch === -1) {
-      return "Error: The specified old text was not found. No changes made.";
+      throw new Error(
+        "The specified old text was not found. No changes made.",
+      );
     }
 
     const secondMatch = originalContent.indexOf(
@@ -60,7 +40,9 @@ export async function editFileTool(
     );
 
     if (secondMatch !== -1) {
-      return "Error: oldText appears more than once. Provide a more specific text snippet.";
+      throw new Error(
+        "oldText appears more than once. Provide a more specific text snippet.",
+      );
     }
 
     const updatedContent =
@@ -68,7 +50,9 @@ export async function editFileTool(
       newText +
       originalContent.slice(firstMatch + oldText.length);
 
-    await fs.writeFile(realTargetPath, updatedContent, "utf8");
+    await fs.writeFile(safePath, updatedContent, "utf8");
+
+    const relativePath = path.relative(process.cwd(), safePath);
 
     return `Successfully edited ${relativePath}`;
   } catch (error) {

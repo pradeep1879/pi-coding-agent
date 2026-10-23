@@ -1,37 +1,34 @@
-import { readFile, realpath, stat } from "node:fs/promises";
-import path from "node:path";
 
-const MAX_FILE_SIZE = 100 * 1024;
+import { readFile, stat } from "node:fs/promises";
+import { securePath } from "./secure-path";
 
-export async function readFileTool(filePath:string): Promise<string> {
-  if(!filePath.trim()){
-    throw new Error("file path cannot be empty");
+const MAX_FILE_SIZE = 100 * 1024; // 100 KB
+
+export async function readFileTool(
+  filePath: string,
+): Promise<string> {
+  if (!filePath.trim()) {
+    throw new Error("File path cannot be empty.");
   }
 
-  const projectRoot = await realpath(process.cwd());
-
-   const resolvedPath = await realpath(
-    path.resolve(projectRoot, filePath),
-  );
-
-
-  // Prevent reading files outside the project.
-  if (
-    resolvedPath !== projectRoot &&
-    !resolvedPath.startsWith(projectRoot + path.sep)
-  ) {
-    throw new Error("Cannot read files outside the project directory");
-  }
-
-  const fileInfo = await stat(resolvedPath);
+  const safePath = securePath(filePath);
+  const fileInfo = await stat(safePath);
 
   if (!fileInfo.isFile()) {
-    throw new Error("The requested path is not a file");
+    throw new Error("The requested path is not a file.");
   }
 
   if (fileInfo.size > MAX_FILE_SIZE) {
-    throw new Error("File is too large to read (maximum 100 KB)");
+    throw new Error("File is too large to read (maximum 100 KB).");
   }
 
-  return await readFile(resolvedPath, "utf8");
+  try {
+    return await readFile(safePath, "utf8");
+  } catch (error) {
+    throw new Error(
+      `Failed to read file "${filePath}": ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }

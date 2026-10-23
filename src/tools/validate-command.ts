@@ -121,11 +121,30 @@ export function parseCommand(command: string): string[] | null {
     }
   }
 
+ 
   if (executable === "bun") {
-    return rest.length === 1 && rest[0] === "test"
-      ? args
-      : null;
+    // Install dependencies.
+    if (rest.length === 1 && rest[0] === "install") {
+      return args;
+    }
+
+    // Run the test suite.
+    if (rest.length === 1 && rest[0] === "test") {
+      return args;
+    }
+
+    // Run only recognized project scripts.
+    if (
+      rest.length === 2 &&
+      rest[0] === "run" &&
+      ["build", "test", "dev", "lint", "typecheck"].includes(rest[1]!)
+    ) {
+      return args;
+    }
+
+    return null;
   }
+
 
   return null;
 }
