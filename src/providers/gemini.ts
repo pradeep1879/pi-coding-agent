@@ -21,7 +21,7 @@ import { inspectProject } from "../tools/inspect-project.js";
 
 type ApprovalCallback = (action: string) => Promise<boolean>;
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.8-flash";
 const MAX_ITERATIONS = 15;
 
 function getErrorMessage(error: unknown): string {
@@ -284,3 +284,9 @@ export async function streamGemini(
     `Agent stopped after reaching the maximum of ${MAX_ITERATIONS} model turns.`,
   );
 }
+
+
+
+
+
+

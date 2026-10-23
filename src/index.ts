@@ -150,7 +150,7 @@ program
     try {
       console.log("\nThinking...\n");
 
-      await streamGemini(options.prompt);
+      await streamGemini(options.prompt, requestCommandApproval);
 
     } catch (error) {
       console.error(

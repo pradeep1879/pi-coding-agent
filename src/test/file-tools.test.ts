@@ -95,39 +95,35 @@ describe("writeFileTool", () => {
 
   test("refuses to overwrite an existing file", async () => {
     const filePath = path.join(testDirectory, "existing.txt");
-    await writeFile(filePath, "Original content", "utf8");
+    await writeFile(filePath, "original content", "utf8");
 
-    const result = await writeFileTool(
-      relativePath(filePath),
-      "Replacement content",
-    );
+    await expect(
+      writeFileTool(relativePath(filePath), "new content"),
+    ).rejects.toThrow();
 
-    expect(result).toContain("Refusing to overwrite");
-    expect(await readFile(filePath, "utf8")).toBe("Original content");
+    expect(await readFile(filePath, "utf8")).toBe("original content");
   });
 
   test("rejects paths outside the project", async () => {
-    const result = await writeFileTool(
-      "../../outside-test-file.txt",
-      "Should not be written",
+    await expect(
+      writeFileTool("../../outside-test-file.txt", "content"),
+    ).rejects.toThrow(
+      "Access outside the project directory is not allowed",
     );
-
-    expect(result).toContain("Error");
   });
 
   test("rejects absolute paths", async () => {
-    const result = await writeFileTool(
-      "/tmp/my-pi-outside-test.txt",
-      "Should not be written",
+    await expect(
+      writeFileTool("/tmp/outside-test-file.txt", "content"),
+    ).rejects.toThrow(
+      "Absolute paths and invalid path characters are not allowed",
     );
-
-    expect(result).toContain("Error");
   });
 
   test("rejects empty paths", async () => {
-    const result = await writeFileTool("", "Some content");
-
-    expect(result).toContain("Error");
+    await expect(
+      writeFileTool("", "content"),
+    ).rejects.toThrow("File path cannot be empty");
   });
 
   test("creates a file inside a new nested directory", async () => {

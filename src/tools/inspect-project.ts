@@ -1,5 +1,5 @@
 
-import { readFile, access } from "node:fs/promises";
+import { readFile, access, readdir } from "node:fs/promises";
 import path from "node:path";
 import { securePath } from "./secure-path";
 import type { PackageJson, ProjectInspection } from "../types/types";
@@ -19,6 +19,10 @@ export async function inspectProject(
 ): Promise<ProjectInspection> {
   const root = path.resolve(directory);
   const notes: string[] = [];
+
+  const entries = await readdir(root);
+
+  const isEmpty = entries.length === 0;
 
   const projectFile = (fileName: string) =>
     path.join(root, fileName);
@@ -84,11 +88,13 @@ export async function inspectProject(
     );
   }
 
-  const kind = packageJson
-    ? "node-project"
-    : packageManager
+  const kind = isEmpty
+    ? "empty"
+    : packageJson
       ? "node-project"
-      : "unknown";
+      : packageManager
+        ? "node-project"
+        : "unknown";
 
   const scripts = packageJson?.scripts ?? {};
 

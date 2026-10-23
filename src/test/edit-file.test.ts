@@ -39,13 +39,10 @@ describe("editFileTool", () => {
     const filePath = path.join(testDirectory, "sample.txt");
     await writeFile(filePath, "Hello world", "utf8");
 
-    const result = await editFileTool(
-      relativePath(filePath),
-      "missing",
-      "replacement",
-    );
+    await expect(
+      editFileTool(relativePath(filePath), "missing", "replacement"),
+    ).rejects.toThrow("The specified old text was not found");
 
-    expect(result).toContain("not found");
     expect(await readFile(filePath, "utf8")).toBe("Hello world");
   });
 
@@ -53,47 +50,33 @@ describe("editFileTool", () => {
     const filePath = path.join(testDirectory, "sample.txt");
     await writeFile(filePath, "foo bar foo", "utf8");
 
-    const result = await editFileTool(
-      relativePath(filePath),
-      "foo",
-      "baz",
-    );
+    await expect(
+      editFileTool(relativePath(filePath), "foo", "baz"),
+    ).rejects.toThrow("oldText appears more than once");
 
-    expect(result).toContain("more than once");
     expect(await readFile(filePath, "utf8")).toBe("foo bar foo");
   });
 
   test("rejects paths outside the project", async () => {
-    const result = await editFileTool(
-      "../../outside-test-file.txt",
-      "old",
-      "new",
-    );
-
-    expect(result).toContain("Error");
+    await expect(
+      editFileTool("../../outside-test-file.txt", "old", "new"),
+    ).rejects.toThrow("Access outside the project directory is not allowed");
   });
 
   test("rejects absolute paths", async () => {
-    const result = await editFileTool(
-      "/etc/passwd",
-      "old",
-      "new",
-    );
-
-    expect(result).toContain("Error");
+    await expect(
+      editFileTool("/etc/passwd", "old", "new"),
+    ).rejects.toThrow("Absolute paths and invalid path characters are not allowed");
   });
 
   test("rejects empty oldText", async () => {
     const filePath = path.join(testDirectory, "sample.txt");
     await writeFile(filePath, "Hello world", "utf8");
 
-    const result = await editFileTool(
-      relativePath(filePath),
-      "",
-      "replacement",
-    );
+    await expect(
+      editFileTool(relativePath(filePath), "", "replacement"),
+    ).rejects.toThrow("oldText cannot be empty");
 
-    expect(result).toContain("oldText cannot be empty");
     expect(await readFile(filePath, "utf8")).toBe("Hello world");
   });
 });

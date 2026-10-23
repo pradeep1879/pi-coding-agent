@@ -49,6 +49,22 @@ describe("inspectProject", () => {
     expect(result.scripts.build).toBe("vite build");
   });
 
+  test("detects an empty directory", async () => {
+  const emptyDirectory = await mkdtemp(
+    path.join(originalDirectory, ".my-pi-empty-test-"),
+  );
+
+  try {
+    const result = await inspectProject(emptyDirectory);
+
+    expect(result.kind).toBe("empty");
+    expect(result.packageName).toBeNull();
+    expect(result.frameworks).toEqual([]);
+  } finally {
+    await rm(emptyDirectory, { recursive: true, force: true });
+  }
+});
+
   test("reports a package manager from a lockfile", async () => {
     await writeFile("bun.lock", "");
 
